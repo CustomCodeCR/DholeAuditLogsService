@@ -106,12 +106,12 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
                 x.IpAddress,
                 x.OccurredAt,
                 x.CreatedAt,
-                !string.IsNullOrWhiteSpace(x.BeforeJson),
-                !string.IsNullOrWhiteSpace(x.AfterJson),
-                !string.IsNullOrWhiteSpace(x.PayloadJson),
-                !string.IsNullOrWhiteSpace(x.MetadataJson),
-                !string.IsNullOrWhiteSpace(x.ErrorMessage),
-                !string.IsNullOrWhiteSpace(x.DetailsJson)
+                x.BeforeJson != null,
+                x.AfterJson != null,
+                x.PayloadJson != null,
+                x.MetadataJson != null,
+                !string.IsNullOrEmpty(x.ErrorMessage),
+                x.DetailsJson != null
             ))
             .ToListAsync(cancellationToken);
 
@@ -150,12 +150,12 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
                 x.IpAddress,
                 x.OccurredAt,
                 x.CreatedAt,
-                !string.IsNullOrWhiteSpace(x.BeforeJson),
-                !string.IsNullOrWhiteSpace(x.AfterJson),
-                !string.IsNullOrWhiteSpace(x.PayloadJson),
-                !string.IsNullOrWhiteSpace(x.MetadataJson),
-                !string.IsNullOrWhiteSpace(x.ErrorMessage),
-                !string.IsNullOrWhiteSpace(x.DetailsJson)
+                x.BeforeJson != null,
+                x.AfterJson != null,
+                x.PayloadJson != null,
+                x.MetadataJson != null,
+                !string.IsNullOrEmpty(x.ErrorMessage),
+                x.DetailsJson != null
             ))
             .ToListAsync(cancellationToken);
     }
@@ -184,12 +184,12 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
                 x.IpAddress,
                 x.OccurredAt,
                 x.CreatedAt,
-                !string.IsNullOrWhiteSpace(x.BeforeJson),
-                !string.IsNullOrWhiteSpace(x.AfterJson),
-                !string.IsNullOrWhiteSpace(x.PayloadJson),
-                !string.IsNullOrWhiteSpace(x.MetadataJson),
-                !string.IsNullOrWhiteSpace(x.ErrorMessage),
-                !string.IsNullOrWhiteSpace(x.DetailsJson)
+                x.BeforeJson != null,
+                x.AfterJson != null,
+                x.PayloadJson != null,
+                x.MetadataJson != null,
+                !string.IsNullOrEmpty(x.ErrorMessage),
+                x.DetailsJson != null
             ))
             .ToListAsync(cancellationToken);
     }
@@ -218,12 +218,12 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
                 x.IpAddress,
                 x.OccurredAt,
                 x.CreatedAt,
-                !string.IsNullOrWhiteSpace(x.BeforeJson),
-                !string.IsNullOrWhiteSpace(x.AfterJson),
-                !string.IsNullOrWhiteSpace(x.PayloadJson),
-                !string.IsNullOrWhiteSpace(x.MetadataJson),
-                !string.IsNullOrWhiteSpace(x.ErrorMessage),
-                !string.IsNullOrWhiteSpace(x.DetailsJson)
+                x.BeforeJson != null,
+                x.AfterJson != null,
+                x.PayloadJson != null,
+                x.MetadataJson != null,
+                !string.IsNullOrEmpty(x.ErrorMessage),
+                x.DetailsJson != null
             ))
             .ToListAsync(cancellationToken);
     }
@@ -259,7 +259,7 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
         var totalErrors = await query.LongCountAsync(
             x =>
                 x.Action == AuditLogsConstants.Actions.Error
-                || !string.IsNullOrWhiteSpace(x.ErrorMessage),
+                || !string.IsNullOrEmpty(x.ErrorMessage),
             cancellationToken
         );
 
