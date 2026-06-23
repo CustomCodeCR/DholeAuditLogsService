@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Dhole.AuditLogs.Api/Dhole.AuditLogs.Api.csproj" />
+    <Project Path="src/Dhole.AuditLogs.Application/Dhole.AuditLogs.Application.csproj" />
+    <Project Path="src/Dhole.AuditLogs.Contracts/Dhole.AuditLogs.Contracts.csproj" />
+    <Project Path="src/Dhole.AuditLogs.Domain/Dhole.AuditLogs.Domain.csproj" />
+    <Project Path="src/Dhole.AuditLogs.Infrastructure/Dhole.AuditLogs.Infrastructure.csproj" />
+    <Project Path="src/Dhole.AuditLogs.Persistence/Dhole.AuditLogs.Persistence.csproj" />
+    <Project Path="src/Dhole.AuditLogs.Workers/Dhole.AuditLogs.Workers.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Dhole.AuditLogs.IntegrationTests/Dhole.AuditLogs.IntegrationTests.csproj" />
+    <Project Path="tests/Dhole.AuditLogs.UnitTests/Dhole.AuditLogs.UnitTests.csproj" />
+  </Folder>
+</Solution>
