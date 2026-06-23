@@ -1,4 +1,3 @@
-using CustomCodeFramework.Api.Responses;
 using CustomCodeFramework.Core.Pagination;
 using CustomCodeFramework.Cqrs.Dispatching;
 using Dhole.AuditLogs.Api.Authorization;
@@ -8,7 +7,6 @@ using Dhole.AuditLogs.Application.AuditEvents.GetAuditEventSummary;
 using Dhole.AuditLogs.Application.AuditEvents.GetCorrelationHistory;
 using Dhole.AuditLogs.Application.AuditEvents.GetEntityHistory;
 using Dhole.AuditLogs.Application.AuditEvents.GetUserHistory;
-using Dhole.AuditLogs.Contracts.AuditEvents;
 
 namespace Dhole.AuditLogs.Api.Endpoints;
 
@@ -28,25 +26,57 @@ public static class AuditEventEndpoints
                     int pageSize,
                     string? sourceService,
                     string? entityType,
-                    Guid? entityId,
-                    Guid? userId,
-                    Guid? correlationId,
+                    string? entityId,
+                    string? userId,
+                    string? correlationId,
                     string? action,
                     string? eventType,
                     DateTime? fromUtc,
                     DateTime? toUtc,
                     IQueryDispatcher dispatcher,
+                    HttpContext httpContext,
                     CancellationToken cancellationToken
                 ) =>
                 {
+                    var parsedEntityId = ParseNullableGuid(entityId);
+                    var parsedUserId = ParseNullableGuid(userId);
+                    var parsedCorrelationId = ParseNullableGuid(correlationId);
+
+                    if (!parsedEntityId.IsValid)
+                    {
+                        return EndpointResults.BadRequest(
+                            "AuditLogs.InvalidEntityId",
+                            "El filtro entityId no es un Guid válido.",
+                            httpContext
+                        );
+                    }
+
+                    if (!parsedUserId.IsValid)
+                    {
+                        return EndpointResults.BadRequest(
+                            "AuditLogs.InvalidUserId",
+                            "El filtro userId no es un Guid válido.",
+                            httpContext
+                        );
+                    }
+
+                    if (!parsedCorrelationId.IsValid)
+                    {
+                        return EndpointResults.BadRequest(
+                            "AuditLogs.InvalidCorrelationId",
+                            "El filtro correlationId no es un Guid válido.",
+                            httpContext
+                        );
+                    }
+
                     var result = await dispatcher.DispatchAsync(
                         new GetAuditEventsQuery(
                             PageRequest.Create(pageNumber, pageSize),
                             sourceService,
                             entityType,
-                            entityId,
-                            userId,
-                            correlationId,
+                            parsedEntityId.Value,
+                            parsedUserId.Value,
+                            parsedCorrelationId.Value,
                             action,
                             eventType,
                             fromUtc,
@@ -66,24 +96,56 @@ public static class AuditEventEndpoints
                 async (
                     string? sourceService,
                     string? entityType,
-                    Guid? entityId,
-                    Guid? userId,
-                    Guid? correlationId,
+                    string? entityId,
+                    string? userId,
+                    string? correlationId,
                     string? action,
                     string? eventType,
                     DateTime? fromUtc,
                     DateTime? toUtc,
                     IQueryDispatcher dispatcher,
+                    HttpContext httpContext,
                     CancellationToken cancellationToken
                 ) =>
                 {
+                    var parsedEntityId = ParseNullableGuid(entityId);
+                    var parsedUserId = ParseNullableGuid(userId);
+                    var parsedCorrelationId = ParseNullableGuid(correlationId);
+
+                    if (!parsedEntityId.IsValid)
+                    {
+                        return EndpointResults.BadRequest(
+                            "AuditLogs.InvalidEntityId",
+                            "El filtro entityId no es un Guid válido.",
+                            httpContext
+                        );
+                    }
+
+                    if (!parsedUserId.IsValid)
+                    {
+                        return EndpointResults.BadRequest(
+                            "AuditLogs.InvalidUserId",
+                            "El filtro userId no es un Guid válido.",
+                            httpContext
+                        );
+                    }
+
+                    if (!parsedCorrelationId.IsValid)
+                    {
+                        return EndpointResults.BadRequest(
+                            "AuditLogs.InvalidCorrelationId",
+                            "El filtro correlationId no es un Guid válido.",
+                            httpContext
+                        );
+                    }
+
                     var result = await dispatcher.DispatchAsync(
                         new GetAuditEventSummaryQuery(
                             sourceService,
                             entityType,
-                            entityId,
-                            userId,
-                            correlationId,
+                            parsedEntityId.Value,
+                            parsedUserId.Value,
+                            parsedCorrelationId.Value,
                             action,
                             eventType,
                             fromUtc,
@@ -92,7 +154,7 @@ public static class AuditEventEndpoints
                         cancellationToken
                     );
 
-                    return Results.Ok(ApiResponse<AuditEventSummaryDto>.Ok(result));
+                    return EndpointResults.Ok(result);
                 }
             )
             .RequireScope(AuditLogsScopeNames.EventsView);
@@ -102,14 +164,25 @@ public static class AuditEventEndpoints
                 "/entity-history",
                 async (
                     string entityType,
-                    Guid entityId,
+                    string entityId,
                     IQueryDispatcher dispatcher,
                     HttpContext httpContext,
                     CancellationToken cancellationToken
                 ) =>
                 {
+                    var parsedEntityId = ParseNullableGuid(entityId);
+
+                    if (!parsedEntityId.IsValid || parsedEntityId.Value is null)
+                    {
+                        return EndpointResults.BadRequest(
+                            "AuditLogs.InvalidEntityId",
+                            "El entityId no es un Guid válido.",
+                            httpContext
+                        );
+                    }
+
                     var result = await dispatcher.DispatchAsync(
-                        new GetEntityHistoryQuery(entityType, entityId),
+                        new GetEntityHistoryQuery(entityType, parsedEntityId.Value.Value),
                         cancellationToken
                     );
 
@@ -120,16 +193,27 @@ public static class AuditEventEndpoints
 
         group
             .MapGet(
-                "/user-history/{userId:guid}",
+                "/user-history/{userId}",
                 async (
-                    Guid userId,
+                    string userId,
                     IQueryDispatcher dispatcher,
                     HttpContext httpContext,
                     CancellationToken cancellationToken
                 ) =>
                 {
+                    var parsedUserId = ParseNullableGuid(userId);
+
+                    if (!parsedUserId.IsValid || parsedUserId.Value is null)
+                    {
+                        return EndpointResults.BadRequest(
+                            "AuditLogs.InvalidUserId",
+                            "El userId no es un Guid válido.",
+                            httpContext
+                        );
+                    }
+
                     var result = await dispatcher.DispatchAsync(
-                        new GetUserHistoryQuery(userId),
+                        new GetUserHistoryQuery(parsedUserId.Value.Value),
                         cancellationToken
                     );
 
@@ -140,16 +224,27 @@ public static class AuditEventEndpoints
 
         group
             .MapGet(
-                "/correlation-history/{correlationId:guid}",
+                "/correlation-history/{correlationId}",
                 async (
-                    Guid correlationId,
+                    string correlationId,
                     IQueryDispatcher dispatcher,
                     HttpContext httpContext,
                     CancellationToken cancellationToken
                 ) =>
                 {
+                    var parsedCorrelationId = ParseNullableGuid(correlationId);
+
+                    if (!parsedCorrelationId.IsValid || parsedCorrelationId.Value is null)
+                    {
+                        return EndpointResults.BadRequest(
+                            "AuditLogs.InvalidCorrelationId",
+                            "El correlationId no es un Guid válido.",
+                            httpContext
+                        );
+                    }
+
                     var result = await dispatcher.DispatchAsync(
-                        new GetCorrelationHistoryQuery(correlationId),
+                        new GetCorrelationHistoryQuery(parsedCorrelationId.Value.Value),
                         cancellationToken
                     );
 
@@ -160,16 +255,27 @@ public static class AuditEventEndpoints
 
         group
             .MapGet(
-                "/{auditEventId:guid}",
+                "/{auditEventId}",
                 async (
-                    Guid auditEventId,
+                    string auditEventId,
                     IQueryDispatcher dispatcher,
                     HttpContext httpContext,
                     CancellationToken cancellationToken
                 ) =>
                 {
+                    var parsedAuditEventId = ParseNullableGuid(auditEventId);
+
+                    if (!parsedAuditEventId.IsValid || parsedAuditEventId.Value is null)
+                    {
+                        return EndpointResults.BadRequest(
+                            "AuditLogs.InvalidAuditEventId",
+                            "El auditEventId no es un Guid válido.",
+                            httpContext
+                        );
+                    }
+
                     var result = await dispatcher.DispatchAsync(
-                        new GetAuditEventByIdQuery(auditEventId),
+                        new GetAuditEventByIdQuery(parsedAuditEventId.Value.Value),
                         cancellationToken
                     );
 
@@ -180,4 +286,25 @@ public static class AuditEventEndpoints
 
         return app;
     }
+
+    private static NullableGuidParseResult ParseNullableGuid(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return new NullableGuidParseResult(true, null);
+        }
+
+        var normalized = value.Trim().Trim('"').Trim('\'');
+
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return new NullableGuidParseResult(true, null);
+        }
+
+        return Guid.TryParse(normalized, out var guid)
+            ? new NullableGuidParseResult(true, guid)
+            : new NullableGuidParseResult(false, null);
+    }
+
+    private sealed record NullableGuidParseResult(bool IsValid, Guid? Value);
 }

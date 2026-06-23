@@ -37,6 +37,13 @@ internal static class EndpointResults
         return Results.Ok(ApiResponse<T>.Ok(value));
     }
 
+    public static IResult BadRequest(string code, string message, HttpContext httpContext)
+    {
+        return Results.BadRequest(
+            ApiErrorResponse.Create(code, message, httpContext.TraceIdentifier)
+        );
+    }
+
     public static IResult FromPaged<T>(PagedResult<T> result)
     {
         return Results.Ok(
