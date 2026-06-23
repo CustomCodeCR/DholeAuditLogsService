@@ -7,6 +7,7 @@ using Dhole.AuditLogs.Contracts.AuditEvents;
 using Dhole.AuditLogs.Domain.AuditEvents.Entities;
 using Dhole.AuditLogs.Domain.AuditEvents.ValueObjects;
 using Dhole.AuditLogs.Domain.Shared;
+using Microsoft.Extensions.Logging;
 
 namespace Dhole.AuditLogs.Application.AuditEvents.RegisterAuditEvent;
 
@@ -14,7 +15,8 @@ public sealed class RegisterAuditEventCommandHandler(
     IAuditEventRepository auditEvents,
     IAuditEventPayloadWriter payloadWriter,
     IAuditErrorDetailWriter errorDetailWriter,
-    IUnitOfWork unitOfWork
+    IUnitOfWork unitOfWork,
+    ILogger<RegisterAuditEventCommandHandler> logger
 ) : ICommandHandler<RegisterAuditEventCommand, Result<Guid>>
 {
     public async Task<Result<Guid>> HandleAsync(
@@ -115,8 +117,19 @@ public sealed class RegisterAuditEventCommandHandler(
             auditEvent.DetailsJson
         );
 
-        await payloadWriter.WriteAsync(auditEventDto, cancellationToken);
-        await errorDetailWriter.WriteAsync(auditEventDto, cancellationToken);
+        try
+        {
+            await payloadWriter.WriteAsync(auditEventDto, cancellationToken);
+            await errorDetailWriter.WriteAsync(auditEventDto, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "No se pudo escribir el snapshot Mongo del evento de auditoría {EventId}. El evento principal sí quedó guardado en PostgreSQL.",
+                request.EventId
+            );
+        }
 
         return Result.Success(auditEvent.Id);
     }

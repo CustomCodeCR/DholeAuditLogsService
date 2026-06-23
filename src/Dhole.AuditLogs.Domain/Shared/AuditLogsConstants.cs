@@ -6,8 +6,14 @@ public static class AuditLogsConstants
 
     public static class Streams
     {
-        public const string AuditEvents = "audit.events";
-        public const string AuditEventsConsumerGroup = "auditlogs";
+        public const string AuditEvents = "dhole.audit.events";
+        public const string AuditEventsConsumerGroup = "dhole-auditlogs";
+    }
+
+    public static class MessageTypes
+    {
+        public const string AuditEventRegistered = "audit.event.registered";
+        public const string AuditErrorRegistered = "audit.error.registered";
     }
 
     public static class Scopes

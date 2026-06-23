@@ -110,7 +110,7 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
                 x.AfterJson != null,
                 x.PayloadJson != null,
                 x.MetadataJson != null,
-                !string.IsNullOrEmpty(x.ErrorMessage),
+                x.ErrorMessage != null && x.ErrorMessage != "",
                 x.DetailsJson != null
             ))
             .ToListAsync(cancellationToken);
@@ -154,7 +154,7 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
                 x.AfterJson != null,
                 x.PayloadJson != null,
                 x.MetadataJson != null,
-                !string.IsNullOrEmpty(x.ErrorMessage),
+                x.ErrorMessage != null && x.ErrorMessage != "",
                 x.DetailsJson != null
             ))
             .ToListAsync(cancellationToken);
@@ -188,7 +188,7 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
                 x.AfterJson != null,
                 x.PayloadJson != null,
                 x.MetadataJson != null,
-                !string.IsNullOrEmpty(x.ErrorMessage),
+                x.ErrorMessage != null && x.ErrorMessage != "",
                 x.DetailsJson != null
             ))
             .ToListAsync(cancellationToken);
@@ -222,7 +222,7 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
                 x.AfterJson != null,
                 x.PayloadJson != null,
                 x.MetadataJson != null,
-                !string.IsNullOrEmpty(x.ErrorMessage),
+                x.ErrorMessage != null && x.ErrorMessage != "",
                 x.DetailsJson != null
             ))
             .ToListAsync(cancellationToken);
@@ -259,7 +259,7 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
         var totalErrors = await query.LongCountAsync(
             x =>
                 x.Action == AuditLogsConstants.Actions.Error
-                || !string.IsNullOrEmpty(x.ErrorMessage),
+                || (x.ErrorMessage != null && x.ErrorMessage != ""),
             cancellationToken
         );
 
@@ -282,19 +282,25 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
             .Distinct()
             .LongCountAsync(cancellationToken);
 
-        var sourceServices = await query
+        var sourceServiceRows = await query
             .GroupBy(x => x.SourceService)
-            .Select(x => new AuditEventSourceServiceDto(x.Key, x.LongCount()))
+            .Select(x => new { SourceService = x.Key, Total = x.LongCount() })
             .OrderByDescending(x => x.Total)
             .ThenBy(x => x.SourceService)
             .ToListAsync(cancellationToken);
 
-        var actions = await query
+        var actionRows = await query
             .GroupBy(x => x.Action)
-            .Select(x => new AuditEventActionDto(x.Key, x.LongCount()))
+            .Select(x => new { Action = x.Key, Total = x.LongCount() })
             .OrderByDescending(x => x.Total)
             .ThenBy(x => x.Action)
             .ToListAsync(cancellationToken);
+
+        var sourceServices = sourceServiceRows
+            .Select(x => new AuditEventSourceServiceDto(x.SourceService, x.Total))
+            .ToList();
+
+        var actions = actionRows.Select(x => new AuditEventActionDto(x.Action, x.Total)).ToList();
 
         return new AuditEventSummaryDto(
             totalEvents,
@@ -322,9 +328,9 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
     {
         if (!string.IsNullOrWhiteSpace(sourceService))
         {
-            var value = sourceService.Trim().ToLower();
+            var value = sourceService.Trim();
 
-            query = query.Where(x => x.SourceService.ToLower().Contains(value));
+            query = query.Where(x => EF.Functions.ILike(x.SourceService, $"%{value}%"));
         }
 
         if (!string.IsNullOrWhiteSpace(entityType))

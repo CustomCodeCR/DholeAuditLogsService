@@ -24,7 +24,7 @@ internal sealed class AuditEventStreamHandler(
 
     private const string ConsumerService = AuditLogsConstants.ServiceName;
 
-    public string MessageType => "audit.event.registered";
+    public string MessageType => AuditLogsConstants.MessageTypes.AuditEventRegistered;
 
     public async Task HandleAsync(
         RedisStreamEnvelope envelope,
@@ -32,7 +32,7 @@ internal sealed class AuditEventStreamHandler(
     )
     {
         logger.LogInformation(
-            "Recibido evento de auditoría {MessageType} con id {MessageId}.",
+            "Recibido evento de auditoría {MessageType} con id Redis {MessageId}.",
             envelope.MessageType,
             envelope.MessageId
         );
@@ -67,6 +67,16 @@ internal sealed class AuditEventStreamHandler(
             return;
         }
 
+        if (request.EventId == Guid.Empty)
+        {
+            logger.LogWarning(
+                "El evento de auditoría {MessageId} llegó sin EventId válido.",
+                envelope.MessageId
+            );
+
+            return;
+        }
+
         var alreadyProcessed = await dbContext.InboxMessages.AnyAsync(
             x => x.EventId == request.EventId && x.ConsumerService == ConsumerService,
             cancellationToken
@@ -75,14 +85,15 @@ internal sealed class AuditEventStreamHandler(
         if (alreadyProcessed)
         {
             logger.LogInformation(
-                "El evento de auditoría {EventId} ya fue procesado.",
+                "El evento de auditoría {EventId} ya estaba registrado en inbox.",
                 request.EventId
             );
 
             return;
         }
 
-        await using var transaction = await dbContext.Database.BeginTransactionAsync(
+        await commandDispatcher.DispatchAsync(
+            new RegisterAuditEventCommand(request),
             cancellationToken
         );
 
@@ -95,25 +106,18 @@ internal sealed class AuditEventStreamHandler(
             EventName = envelope.MessageType,
             SourceService = request.SourceService,
             ConsumerService = ConsumerService,
-            CorrelationId = request.CorrelationId.ToString(),
+            CorrelationId =
+                request.CorrelationId == Guid.Empty ? null : request.CorrelationId.ToString(),
             Status = InboxMessageStatus.Processed,
             ProcessedAtUtc = now,
             CreatedAtUtc = now,
         };
 
         await dbContext.InboxMessages.AddAsync(inboxMessage, cancellationToken);
-
-        await commandDispatcher.DispatchAsync(
-            new RegisterAuditEventCommand(request),
-            cancellationToken
-        );
-
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        await transaction.CommitAsync(cancellationToken);
-
         logger.LogInformation(
-            "Evento de auditoría {EventId} de {SourceService} procesado correctamente.",
+            "Evento de auditoría {EventId} de {SourceService} procesado y guardado en inbox.",
             request.EventId,
             request.SourceService
         );

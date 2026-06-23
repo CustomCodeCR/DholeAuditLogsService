@@ -24,7 +24,7 @@ internal sealed class AuditErrorStreamHandler(
 
     private const string ConsumerService = AuditLogsConstants.ServiceName;
 
-    public string MessageType => "audit.error.registered";
+    public string MessageType => AuditLogsConstants.MessageTypes.AuditErrorRegistered;
 
     public async Task HandleAsync(
         RedisStreamEnvelope envelope,
@@ -32,7 +32,7 @@ internal sealed class AuditErrorStreamHandler(
     )
     {
         logger.LogInformation(
-            "Recibido evento de error de auditoría {MessageType} con id {MessageId}.",
+            "Recibido evento de error de auditoría {MessageType} con id Redis {MessageId}.",
             envelope.MessageType,
             envelope.MessageId
         );
@@ -67,10 +67,20 @@ internal sealed class AuditErrorStreamHandler(
             return;
         }
 
+        if (request.EventId == Guid.Empty)
+        {
+            logger.LogWarning(
+                "El evento de error de auditoría {MessageId} llegó sin EventId válido.",
+                envelope.MessageId
+            );
+
+            return;
+        }
+
         request = request with
         {
             Action = AuditLogsConstants.Actions.Error,
-            EventType = request.EventType ?? "audit.error.registered",
+            EventType = request.EventType ?? AuditLogsConstants.MessageTypes.AuditErrorRegistered,
         };
 
         var alreadyProcessed = await dbContext.InboxMessages.AnyAsync(
@@ -81,14 +91,15 @@ internal sealed class AuditErrorStreamHandler(
         if (alreadyProcessed)
         {
             logger.LogInformation(
-                "El evento de error de auditoría {EventId} ya fue procesado.",
+                "El evento de error de auditoría {EventId} ya estaba registrado en inbox.",
                 request.EventId
             );
 
             return;
         }
 
-        await using var transaction = await dbContext.Database.BeginTransactionAsync(
+        await commandDispatcher.DispatchAsync(
+            new RegisterAuditEventCommand(request),
             cancellationToken
         );
 
@@ -101,25 +112,18 @@ internal sealed class AuditErrorStreamHandler(
             EventName = envelope.MessageType,
             SourceService = request.SourceService,
             ConsumerService = ConsumerService,
-            CorrelationId = request.CorrelationId.ToString(),
+            CorrelationId =
+                request.CorrelationId == Guid.Empty ? null : request.CorrelationId.ToString(),
             Status = InboxMessageStatus.Processed,
             ProcessedAtUtc = now,
             CreatedAtUtc = now,
         };
 
         await dbContext.InboxMessages.AddAsync(inboxMessage, cancellationToken);
-
-        await commandDispatcher.DispatchAsync(
-            new RegisterAuditEventCommand(request),
-            cancellationToken
-        );
-
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        await transaction.CommitAsync(cancellationToken);
-
         logger.LogInformation(
-            "Evento de error de auditoría {EventId} de {SourceService} procesado correctamente.",
+            "Evento de error de auditoría {EventId} de {SourceService} procesado y guardado en inbox.",
             request.EventId,
             request.SourceService
         );
