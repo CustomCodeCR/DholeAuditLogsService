@@ -43,6 +43,8 @@ public static class AuditLogsConstants
         public const string Error = "error";
         public const string Viewed = "viewed";
         public const string Exported = "exported";
+        public const string Chat = "chat";
+        public const string Analyzed = "analyzed";
     }
 
     public static class Results
@@ -55,5 +57,7 @@ public static class AuditLogsConstants
     public static class EntityTypes
     {
         public const string AuditEvent = "AuditEvent";
+        public const string AiChat = "AiChat";
+        public const string PricingAiAnalysis = "PricingAiAnalysis";
     }
 }
