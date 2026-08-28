@@ -19,5 +19,9 @@ public sealed record RegisterAuditEventRequest(
     string? Metadata,
     string? ErrorMessage,
     string? StackTrace,
-    IReadOnlyCollection<RegisterAuditEventDetailRequest>? Details
+    IReadOnlyCollection<RegisterAuditEventDetailRequest>? Details,
+    string? EntityName = null,
+    string? Description = null,
+    string? HttpMethod = null,
+    string? RequestPath = null
 );

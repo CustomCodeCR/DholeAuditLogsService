@@ -10,27 +10,14 @@ using Microsoft.EntityFrameworkCore;
 namespace Dhole.AuditLogs.Persistence.Repositories;
 
 public sealed class AuditEventRepository(ServiceDbContext dbContext)
-    : EfRepository<AuditEvent, Guid>(dbContext),
-        IAuditEventRepository
+    : EfRepository<AuditEvent, Guid>(dbContext), IAuditEventRepository
 {
-    public Task<AuditEvent?> GetByEventIdAsync(
-        Guid eventId,
-        CancellationToken cancellationToken = default
-    )
-    {
-        return dbContext.AuditEvents.FirstOrDefaultAsync(
-            x => x.EventId == eventId,
-            cancellationToken
-        );
-    }
+    public Task<AuditEvent?> GetByEventIdAsync(Guid eventId, CancellationToken cancellationToken = default)
+        => dbContext.AuditEvents.FirstOrDefaultAsync(x => x.EventId == eventId, cancellationToken);
 
-    public async Task<AuditEventDto?> GetDetailAsync(
-        Guid auditEventId,
-        CancellationToken cancellationToken = default
-    )
+    public async Task<AuditEventDto?> GetDetailAsync(Guid auditEventId, CancellationToken cancellationToken = default)
     {
-        return await dbContext
-            .AuditEvents.AsNoTracking()
+        return await dbContext.AuditEvents.AsNoTracking()
             .Where(x => x.Id == auditEventId)
             .Select(x => new AuditEventDto(
                 x.Id,
@@ -39,6 +26,7 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
                 x.SourceService,
                 x.EntityType,
                 x.EntityId,
+                x.EntityName,
                 x.Action,
                 x.EventType,
                 x.UserId,
@@ -47,6 +35,9 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
                 x.UserAgent,
                 x.OccurredAt,
                 x.CreatedAt,
+                x.Description,
+                x.HttpMethod,
+                x.RequestPath,
                 x.BeforeJson,
                 x.AfterJson,
                 x.PayloadJson,
@@ -86,41 +77,12 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
         );
 
         var total = await query.CountAsync(cancellationToken);
-
-        var items = await query
-            .OrderByDescending(x => x.OccurredAt)
-            .ThenByDescending(x => x.CreatedAt)
+        var items = await ToListItems(query)
             .Skip(page.Skip)
             .Take(page.PageSize)
-            .Select(x => new AuditEventListItemDto(
-                x.Id,
-                x.EventId,
-                x.CorrelationId,
-                x.SourceService,
-                x.EntityType,
-                x.EntityId,
-                x.Action,
-                x.EventType,
-                x.UserId,
-                x.UserName,
-                x.IpAddress,
-                x.OccurredAt,
-                x.CreatedAt,
-                x.BeforeJson != null,
-                x.AfterJson != null,
-                x.PayloadJson != null,
-                x.MetadataJson != null,
-                x.ErrorMessage != null && x.ErrorMessage != "",
-                x.DetailsJson != null
-            ))
             .ToListAsync(cancellationToken);
 
-        return PagedResult<AuditEventListItemDto>.Create(
-            items,
-            page.PageNumber,
-            page.PageSize,
-            total
-        );
+        return PagedResult<AuditEventListItemDto>.Create(items, page.PageNumber, page.PageSize, total);
     }
 
     public async Task<IReadOnlyCollection<AuditEventListItemDto>> GetByEntityAsync(
@@ -130,33 +92,9 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
     )
     {
         var value = entityType.Trim();
-
-        return await dbContext
-            .AuditEvents.AsNoTracking()
-            .Where(x => x.EntityType == value && x.EntityId == entityId)
-            .OrderByDescending(x => x.OccurredAt)
-            .ThenByDescending(x => x.CreatedAt)
-            .Select(x => new AuditEventListItemDto(
-                x.Id,
-                x.EventId,
-                x.CorrelationId,
-                x.SourceService,
-                x.EntityType,
-                x.EntityId,
-                x.Action,
-                x.EventType,
-                x.UserId,
-                x.UserName,
-                x.IpAddress,
-                x.OccurredAt,
-                x.CreatedAt,
-                x.BeforeJson != null,
-                x.AfterJson != null,
-                x.PayloadJson != null,
-                x.MetadataJson != null,
-                x.ErrorMessage != null && x.ErrorMessage != "",
-                x.DetailsJson != null
-            ))
+        return await ToListItems(
+                dbContext.AuditEvents.AsNoTracking().Where(x => x.EntityType == value && x.EntityId == entityId)
+            )
             .ToListAsync(cancellationToken);
     }
 
@@ -165,32 +103,7 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
         CancellationToken cancellationToken = default
     )
     {
-        return await dbContext
-            .AuditEvents.AsNoTracking()
-            .Where(x => x.UserId == userId)
-            .OrderByDescending(x => x.OccurredAt)
-            .ThenByDescending(x => x.CreatedAt)
-            .Select(x => new AuditEventListItemDto(
-                x.Id,
-                x.EventId,
-                x.CorrelationId,
-                x.SourceService,
-                x.EntityType,
-                x.EntityId,
-                x.Action,
-                x.EventType,
-                x.UserId,
-                x.UserName,
-                x.IpAddress,
-                x.OccurredAt,
-                x.CreatedAt,
-                x.BeforeJson != null,
-                x.AfterJson != null,
-                x.PayloadJson != null,
-                x.MetadataJson != null,
-                x.ErrorMessage != null && x.ErrorMessage != "",
-                x.DetailsJson != null
-            ))
+        return await ToListItems(dbContext.AuditEvents.AsNoTracking().Where(x => x.UserId == userId))
             .ToListAsync(cancellationToken);
     }
 
@@ -199,32 +112,7 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
         CancellationToken cancellationToken = default
     )
     {
-        return await dbContext
-            .AuditEvents.AsNoTracking()
-            .Where(x => x.CorrelationId == correlationId)
-            .OrderByDescending(x => x.OccurredAt)
-            .ThenByDescending(x => x.CreatedAt)
-            .Select(x => new AuditEventListItemDto(
-                x.Id,
-                x.EventId,
-                x.CorrelationId,
-                x.SourceService,
-                x.EntityType,
-                x.EntityId,
-                x.Action,
-                x.EventType,
-                x.UserId,
-                x.UserName,
-                x.IpAddress,
-                x.OccurredAt,
-                x.CreatedAt,
-                x.BeforeJson != null,
-                x.AfterJson != null,
-                x.PayloadJson != null,
-                x.MetadataJson != null,
-                x.ErrorMessage != null && x.ErrorMessage != "",
-                x.DetailsJson != null
-            ))
+        return await ToListItems(dbContext.AuditEvents.AsNoTracking().Where(x => x.CorrelationId == correlationId))
             .ToListAsync(cancellationToken);
     }
 
@@ -255,42 +143,29 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
         );
 
         var totalEvents = await query.LongCountAsync(cancellationToken);
-
         var totalErrors = await query.LongCountAsync(
-            x =>
-                x.Action == AuditLogsConstants.Actions.Error
-                || (x.ErrorMessage != null && x.ErrorMessage != ""),
+            x => x.Action == AuditLogsConstants.Actions.Error || (x.ErrorMessage != null && x.ErrorMessage != ""),
             cancellationToken
         );
-
         var totalAccessDenied = await query.LongCountAsync(
-            x =>
-                x.Action == AuditLogsConstants.Actions.AccessDenied
-                || x.Action == AuditLogsConstants.Results.Denied,
+            x => x.Action == AuditLogsConstants.Actions.AccessDenied || x.Action == AuditLogsConstants.Results.Denied,
             cancellationToken
         );
-
-        var totalUsers = await query
-            .Where(x => x.UserId.HasValue)
+        var totalUsers = await query.Where(x => x.UserId.HasValue)
             .Select(x => x.UserId)
             .Distinct()
             .LongCountAsync(cancellationToken);
-
-        var totalEntities = await query
-            .Where(x => x.EntityType != null && x.EntityId.HasValue)
-            .Select(x => new { x.EntityType, x.EntityId })
+        var totalEntities = await query.Where(x => x.EntityType != null)
+            .Select(x => new { x.EntityType, x.EntityId, x.EntityName })
             .Distinct()
             .LongCountAsync(cancellationToken);
 
-        var sourceServiceRows = await query
-            .GroupBy(x => x.SourceService)
+        var sourceServiceRows = await query.GroupBy(x => x.SourceService)
             .Select(x => new { SourceService = x.Key, Total = x.LongCount() })
             .OrderByDescending(x => x.Total)
             .ThenBy(x => x.SourceService)
             .ToListAsync(cancellationToken);
-
-        var actionRows = await query
-            .GroupBy(x => x.Action)
+        var actionRows = await query.GroupBy(x => x.Action)
             .Select(x => new { Action = x.Key, Total = x.LongCount() })
             .OrderByDescending(x => x.Total)
             .ThenBy(x => x.Action)
@@ -299,7 +174,6 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
         var sourceServices = sourceServiceRows
             .Select(x => new AuditEventSourceServiceDto(x.SourceService, x.Total))
             .ToList();
-
         var actions = actionRows.Select(x => new AuditEventActionDto(x.Action, x.Total)).ToList();
 
         return new AuditEventSummaryDto(
@@ -311,6 +185,39 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
             sourceServices,
             actions
         );
+    }
+
+    private static IQueryable<AuditEventListItemDto> ToListItems(IQueryable<AuditEvent> query)
+    {
+        return query
+            .OrderByDescending(x => x.OccurredAt)
+            .ThenByDescending(x => x.CreatedAt)
+            .Select(x => new AuditEventListItemDto(
+                x.Id,
+                x.EventId,
+                x.CorrelationId,
+                x.SourceService,
+                x.EntityType,
+                x.EntityId,
+                x.EntityName,
+                x.Action,
+                x.EventType,
+                x.UserId,
+                x.UserName,
+                x.IpAddress,
+                x.UserAgent,
+                x.OccurredAt,
+                x.CreatedAt,
+                x.Description,
+                x.HttpMethod,
+                x.RequestPath,
+                x.BeforeJson != null,
+                x.AfterJson != null,
+                x.PayloadJson != null,
+                x.MetadataJson != null,
+                x.ErrorMessage != null && x.ErrorMessage != "",
+                x.DetailsJson != null
+            ));
     }
 
     private static IQueryable<AuditEvent> ApplyFilters(
@@ -329,55 +236,33 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
         if (!string.IsNullOrWhiteSpace(sourceService))
         {
             var value = sourceService.Trim();
-
             query = query.Where(x => EF.Functions.ILike(x.SourceService, $"%{value}%"));
         }
 
         if (!string.IsNullOrWhiteSpace(entityType))
         {
             var value = entityType.Trim();
-
             query = query.Where(x => x.EntityType == value);
         }
 
-        if (entityId.HasValue)
-        {
-            query = query.Where(x => x.EntityId == entityId.Value);
-        }
-
-        if (userId.HasValue)
-        {
-            query = query.Where(x => x.UserId == userId.Value);
-        }
-
-        if (correlationId.HasValue)
-        {
-            query = query.Where(x => x.CorrelationId == correlationId.Value);
-        }
+        if (entityId.HasValue) query = query.Where(x => x.EntityId == entityId.Value);
+        if (userId.HasValue) query = query.Where(x => x.UserId == userId.Value);
+        if (correlationId.HasValue) query = query.Where(x => x.CorrelationId == correlationId.Value);
 
         if (!string.IsNullOrWhiteSpace(action))
         {
             var value = action.Trim();
-
             query = query.Where(x => x.Action == value);
         }
 
         if (!string.IsNullOrWhiteSpace(eventType))
         {
             var value = eventType.Trim();
-
             query = query.Where(x => x.EventType == value);
         }
 
-        if (fromUtc.HasValue)
-        {
-            query = query.Where(x => x.OccurredAt >= fromUtc.Value);
-        }
-
-        if (toUtc.HasValue)
-        {
-            query = query.Where(x => x.OccurredAt <= toUtc.Value);
-        }
+        if (fromUtc.HasValue) query = query.Where(x => x.OccurredAt >= fromUtc.Value);
+        if (toUtc.HasValue) query = query.Where(x => x.OccurredAt <= toUtc.Value);
 
         return query;
     }

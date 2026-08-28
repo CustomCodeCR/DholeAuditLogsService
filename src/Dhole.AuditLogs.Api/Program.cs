@@ -42,7 +42,6 @@ builder.Services.AddInfrastructure(builder.Configuration);
 var app = builder.Build();
 
 app.UseCustomCodeApi();
-
 app.UseCors(CorsPolicyName);
 
 if (app.Environment.IsDevelopment())
@@ -52,17 +51,14 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet(
         "/health",
-        () =>
-        {
-            return Results.Ok(
-                new
-                {
-                    service = "DholeAuditLogsService",
-                    status = "Healthy",
-                    timestamp = DateTimeOffset.UtcNow,
-                }
-            );
-        }
+        () => Results.Ok(
+            new
+            {
+                service = "DholeAuditLogsService",
+                status = "Healthy",
+                timestamp = DateTimeOffset.UtcNow,
+            }
+        )
     )
     .AllowAnonymous();
 
@@ -70,11 +66,11 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAuditEventEndpoints();
+app.MapAuditAccessEndpoints();
 
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ServiceDbContext>();
-
     await dbContext.Database.MigrateAsync();
 }
 

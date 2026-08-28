@@ -20,6 +20,7 @@ public sealed class AuditEvent : AggregateRoot<Guid>
         string sourceService,
         string? entityType,
         Guid? entityId,
+        string? entityName,
         string action,
         string? eventType,
         Guid? userId,
@@ -27,6 +28,9 @@ public sealed class AuditEvent : AggregateRoot<Guid>
         string? ipAddress,
         string? userAgent,
         DateTime occurredAt,
+        string? description,
+        string? httpMethod,
+        string? requestPath,
         string? beforeJson,
         string? afterJson,
         string? payloadJson,
@@ -42,6 +46,7 @@ public sealed class AuditEvent : AggregateRoot<Guid>
         SourceService = sourceService;
         EntityType = entityType;
         EntityId = entityId;
+        EntityName = entityName;
         Action = action;
         EventType = eventType;
         UserId = userId;
@@ -49,6 +54,9 @@ public sealed class AuditEvent : AggregateRoot<Guid>
         IpAddress = ipAddress;
         UserAgent = userAgent;
         OccurredAt = occurredAt;
+        Description = description;
+        HttpMethod = httpMethod;
+        RequestPath = requestPath;
         BeforeJson = beforeJson;
         AfterJson = afterJson;
         PayloadJson = payloadJson;
@@ -60,43 +68,28 @@ public sealed class AuditEvent : AggregateRoot<Guid>
     }
 
     public Guid EventId { get; private set; }
-
     public Guid CorrelationId { get; private set; }
-
     public string SourceService { get; private set; } = default!;
-
     public string? EntityType { get; private set; }
-
     public Guid? EntityId { get; private set; }
-
+    public string? EntityName { get; private set; }
     public string Action { get; private set; } = default!;
-
     public string? EventType { get; private set; }
-
     public Guid? UserId { get; private set; }
-
     public string? UserName { get; private set; }
-
     public string? IpAddress { get; private set; }
-
     public string? UserAgent { get; private set; }
-
     public DateTime OccurredAt { get; private set; }
-
+    public string? Description { get; private set; }
+    public string? HttpMethod { get; private set; }
+    public string? RequestPath { get; private set; }
     public string? BeforeJson { get; private set; }
-
     public string? AfterJson { get; private set; }
-
     public string? PayloadJson { get; private set; }
-
     public string? MetadataJson { get; private set; }
-
     public string? ErrorMessage { get; private set; }
-
     public string? StackTrace { get; private set; }
-
     public string? DetailsJson { get; private set; }
-
     public DateTime CreatedAt { get; private set; }
 
     public IReadOnlyCollection<AuditEventDetailJson> Details => GetDetails();
@@ -107,6 +100,7 @@ public sealed class AuditEvent : AggregateRoot<Guid>
         string sourceService,
         string? entityType,
         Guid? entityId,
+        string? entityName,
         string action,
         string? eventType,
         Guid? userId,
@@ -114,6 +108,9 @@ public sealed class AuditEvent : AggregateRoot<Guid>
         string? ipAddress,
         string? userAgent,
         DateTime occurredAt,
+        string? description = null,
+        string? httpMethod = null,
+        string? requestPath = null,
         string? beforeJson = null,
         string? afterJson = null,
         string? payloadJson = null,
@@ -130,6 +127,7 @@ public sealed class AuditEvent : AggregateRoot<Guid>
             sourceService.Trim(),
             TrimOrNull(entityType),
             entityId,
+            TrimOrNull(entityName),
             action.Trim(),
             TrimOrNull(eventType),
             userId,
@@ -137,6 +135,9 @@ public sealed class AuditEvent : AggregateRoot<Guid>
             TrimOrNull(ipAddress),
             TrimOrNull(userAgent),
             occurredAt,
+            TrimOrNull(description),
+            TrimOrNull(httpMethod),
+            TrimOrNull(requestPath),
             NormalizeJson(beforeJson),
             NormalizeJson(afterJson),
             NormalizeJson(payloadJson),
