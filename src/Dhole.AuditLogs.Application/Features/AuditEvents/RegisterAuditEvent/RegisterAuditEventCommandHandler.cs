@@ -7,6 +7,7 @@ using Dhole.AuditLogs.Application.Abstractions.Repositories;
 using Dhole.AuditLogs.Contracts.AuditEvents;
 using Dhole.AuditLogs.Domain.AuditEvents.Entities;
 using Dhole.AuditLogs.Domain.AuditEvents.ValueObjects;
+using Dhole.AuditLogs.Domain.Shared;
 using Microsoft.Extensions.Logging;
 
 namespace Dhole.AuditLogs.Application.AuditEvents.RegisterAuditEvent;
@@ -27,13 +28,13 @@ public sealed class RegisterAuditEventCommandHandler(
         var request = command.Request;
 
         if (request.EventId == Guid.Empty)
-            return Result.Failure<Guid>(Domain.Shared.AuditLogsErrors.InvalidEventId);
+            return Result.Failure<Guid>(AuditLogsErrors.InvalidEventId);
         if (request.CorrelationId == Guid.Empty)
-            return Result.Failure<Guid>(Domain.Shared.AuditLogsErrors.InvalidCorrelationId);
+            return Result.Failure<Guid>(AuditLogsErrors.InvalidCorrelationId);
         if (string.IsNullOrWhiteSpace(request.SourceService))
-            return Result.Failure<Guid>(Domain.Shared.AuditLogsErrors.InvalidSourceService);
+            return Result.Failure<Guid>(AuditLogsErrors.InvalidSourceService);
         if (string.IsNullOrWhiteSpace(request.Action))
-            return Result.Failure<Guid>(Domain.Shared.AuditLogsErrors.InvalidAction);
+            return Result.Failure<Guid>(AuditLogsErrors.InvalidAction);
 
         var existingAuditEvent = await auditEvents.GetByEventIdAsync(request.EventId, cancellationToken);
         if (existingAuditEvent is not null)
