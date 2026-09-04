@@ -1,0 +1,168 @@
+name: One-time truncate AuditLogs and Notifications - Production
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/one-time-truncate-auditlogs-notifications-production.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dhole-auditlogs-production
+  cancel-in-progress: false
+
+env:
+  COMPOSE_FILE: .dhole-system/deploy/docker-compose.services.yml
+  COMPOSE_PROJECT: dhole
+  DHOLE_NETWORK: dhole
+
+jobs:
+  truncate:
+    runs-on: [self-hosted, linux, x64, dhole]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load Dhole production infrastructure
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .dhole-system
+          git clone --depth 1 --branch main https://github.com/CustomCodeCR/DholeSystem.git .dhole-system
+          mkdir -p "$RUNNER_TEMP/dhole-env"
+          bash .dhole-system/deploy/prepare-environments.sh /opt/dhole/.env "$RUNNER_TEMP/dhole-env"
+          echo "DHOLE_ENV_FILE=$RUNNER_TEMP/dhole-env/.env.production" >> "$GITHUB_ENV"
+
+      - name: Truncate production AuditLogs and Notifications data
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          compose() {
+            docker compose --env-file "$DHOLE_ENV_FILE" -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" "$@"
+          }
+
+          get_connection() {
+            local service="$1"
+            local cid line conn=""
+            cid="$(compose ps -q "$service" | head -n1)"
+            if [[ -z "$cid" ]]; then
+              cid="$(compose ps -aq "$service" | head -n1)"
+            fi
+            if [[ -z "$cid" ]]; then
+              echo "No se encontró el contenedor de $service" >&2
+              return 1
+            fi
+
+            while IFS= read -r line; do
+              case "$line" in
+                ConnectionStrings__Postgres=*) conn="${line#*=}" ;;
+                Postgres__ConnectionString=*) [[ -z "$conn" ]] && conn="${line#*=}" ;;
+                POSTGRES_CONNECTION_STRING=*) [[ -z "$conn" ]] && conn="${line#*=}" ;;
+              esac
+            done < <(docker inspect "$cid" --format '{{range .Config.Env}}{{println .}}{{end}}')
+
+            if [[ -z "$conn" ]]; then
+              echo "No se encontró una conexión PostgreSQL efectiva en $service" >&2
+              return 1
+            fi
+
+            printf '%s' "$conn"
+          }
+
+          conn_field() {
+            local conn="$1"
+            local wanted="$2"
+            local part key value
+            local -a parts
+            IFS=';' read -r -a parts <<< "$conn"
+            for part in "${parts[@]}"; do
+              [[ "$part" == *=* ]] || continue
+              key="${part%%=*}"
+              value="${part#*=}"
+              key="${key//[[:space:]]/}"
+              if [[ "${key,,}" == "${wanted,,}" ]]; then
+                value="${value#\"}"
+                value="${value%\"}"
+                printf '%s' "$value"
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          run_sql() {
+            local conn="$1"
+            local sql="$2"
+            local host port db user password
+            host="$(conn_field "$conn" Host)"
+            port="$(conn_field "$conn" Port || true)"
+            db="$(conn_field "$conn" Database)"
+            user="$(conn_field "$conn" Username || true)"
+            [[ -n "$user" ]] || user="$(conn_field "$conn" 'User ID' || true)"
+            password="$(conn_field "$conn" Password)"
+            [[ -n "$port" ]] || port=5432
+
+            if [[ -z "$host" || -z "$db" || -z "$user" ]]; then
+              echo "Conexión PostgreSQL incompleta; se aborta para no tocar una base equivocada." >&2
+              return 1
+            fi
+
+            if command -v psql >/dev/null 2>&1; then
+              PGPASSWORD="$password" psql -v ON_ERROR_STOP=1 -Atq -h "$host" -p "$port" -U "$user" -d "$db" -c "$sql"
+            else
+              local -a net_args
+              if [[ "$host" == "localhost" || "$host" == "127.0.0.1" ]]; then
+                net_args=(--network host)
+              else
+                net_args=(--network "$DHOLE_NETWORK")
+              fi
+              docker run --rm "${net_args[@]}" -e PGPASSWORD="$password" postgres:16-alpine \
+                psql -v ON_ERROR_STOP=1 -Atq -h "$host" -p "$port" -U "$user" -d "$db" -c "$sql"
+            fi
+          }
+
+          AUDIT_CONN="$(get_connection auditlogs-api)"
+          NOTIFICATIONS_CONN="$(get_connection notifications-api)"
+
+          echo "Registros antes del TRUNCATE:"
+          AUDIT_BEFORE="$(run_sql "$AUDIT_CONN" 'SELECT count(*) FROM auditlogs."AuditEvents";')"
+          NOTIF_BEFORE="$(run_sql "$NOTIFICATIONS_CONN" 'SELECT count(*) FROM notifications.notification_messages;')"
+          RECIP_BEFORE="$(run_sql "$NOTIFICATIONS_CONN" 'SELECT count(*) FROM notifications.notification_recipients;')"
+          ATTEMPT_BEFORE="$(run_sql "$NOTIFICATIONS_CONN" 'SELECT count(*) FROM notifications.notification_delivery_attempts;')"
+          echo "AuditEvents=$AUDIT_BEFORE"
+          echo "notification_messages=$NOTIF_BEFORE"
+          echo "notification_recipients=$RECIP_BEFORE"
+          echo "notification_delivery_attempts=$ATTEMPT_BEFORE"
+
+          # Se truncan únicamente los datos operativos visibles. Las plantillas de notificación,
+          # inbox/outbox y demás configuración se conservan.
+          run_sql "$AUDIT_CONN" 'TRUNCATE TABLE auditlogs."AuditEvents" RESTART IDENTITY CASCADE;'
+          run_sql "$NOTIFICATIONS_CONN" 'TRUNCATE TABLE notifications.notification_messages RESTART IDENTITY CASCADE;'
+
+          echo "Registros inmediatamente después del TRUNCATE:"
+          AUDIT_AFTER="$(run_sql "$AUDIT_CONN" 'SELECT count(*) FROM auditlogs."AuditEvents";')"
+          NOTIF_AFTER="$(run_sql "$NOTIFICATIONS_CONN" 'SELECT count(*) FROM notifications.notification_messages;')"
+          RECIP_AFTER="$(run_sql "$NOTIFICATIONS_CONN" 'SELECT count(*) FROM notifications.notification_recipients;')"
+          ATTEMPT_AFTER="$(run_sql "$NOTIFICATIONS_CONN" 'SELECT count(*) FROM notifications.notification_delivery_attempts;')"
+          echo "AuditEvents=$AUDIT_AFTER"
+          echo "notification_messages=$NOTIF_AFTER"
+          echo "notification_recipients=$RECIP_AFTER"
+          echo "notification_delivery_attempts=$ATTEMPT_AFTER"
+
+          if [[ "$AUDIT_AFTER" != "0" || "$NOTIF_AFTER" != "0" || "$RECIP_AFTER" != "0" || "$ATTEMPT_AFTER" != "0" ]]; then
+            echo "El TRUNCATE no dejó las tablas objetivo en cero; se aborta la limpieza automática del workflow." >&2
+            exit 1
+          fi
+
+      - name: Remove one-time workflow
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/one-time-truncate-auditlogs-notifications-production.yml
+          git commit -m "chore: remove one-time production truncate workflow"
+          git push origin HEAD:master
