@@ -37,6 +37,11 @@ public interface IAuditEventRepository : IRepository<AuditEvent, Guid>
         CancellationToken cancellationToken = default
     );
 
+    Task<IReadOnlyCollection<AuditEventDto>> GetPricingRateHistoryAsync(
+        Guid rateHeaderId,
+        CancellationToken cancellationToken = default
+    );
+
     Task<IReadOnlyCollection<AuditEventListItemDto>> GetByUserAsync(
         Guid userId,
         CancellationToken cancellationToken = default
