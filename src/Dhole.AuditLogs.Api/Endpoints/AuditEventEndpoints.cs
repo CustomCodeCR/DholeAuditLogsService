@@ -7,6 +7,7 @@ using Dhole.AuditLogs.Application.AuditEvents.GetAuditEventSummary;
 using Dhole.AuditLogs.Application.AuditEvents.GetCorrelationHistory;
 using Dhole.AuditLogs.Application.AuditEvents.GetEntityHistory;
 using Dhole.AuditLogs.Application.AuditEvents.GetUserHistory;
+using Dhole.AuditLogs.Application.Abstractions.Repositories;
 
 namespace Dhole.AuditLogs.Api.Endpoints;
 
@@ -252,6 +253,36 @@ public static class AuditEventEndpoints
                 }
             )
             .RequireScope(AuditLogsScopeNames.EventsView);
+
+        group
+            .MapGet(
+                "/pricing-rate-history/{rateId}",
+                async (
+                    string rateId,
+                    IAuditEventRepository auditEvents,
+                    HttpContext httpContext,
+                    CancellationToken cancellationToken
+                ) =>
+                {
+                    if (!Guid.TryParse(rateId.Trim().Trim('"').Trim('\''), out var parsedRateId)
+                        || parsedRateId == Guid.Empty)
+                    {
+                        return EndpointResults.BadRequest(
+                            "AuditLogs.InvalidPricingRateId",
+                            "El identificador de la cotización no es válido.",
+                            httpContext
+                        );
+                    }
+
+                    var history = await auditEvents.GetPricingRateHistoryAsync(
+                        parsedRateId,
+                        cancellationToken
+                    );
+
+                    return EndpointResults.Ok(history);
+                }
+            )
+            .RequireScope(AuditLogsScopeNames.PricingRateView);
 
         group
             .MapGet(
