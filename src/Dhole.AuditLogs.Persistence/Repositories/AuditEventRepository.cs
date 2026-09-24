@@ -98,6 +98,61 @@ public sealed class AuditEventRepository(ServiceDbContext dbContext)
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<AuditEventDto>> GetPricingRateHistoryAsync(
+        Guid rateHeaderId,
+        CancellationToken cancellationToken = default
+    )
+    {
+        const string pricingService = "DholePricingService";
+        const string rateHeaderEntity = "RateHeader";
+        const string rateDetailEntity = "RateDetail";
+
+        var rateCorrelations = dbContext.AuditEvents.AsNoTracking()
+            .Where(x =>
+                x.SourceService == pricingService
+                && x.EntityType == rateHeaderEntity
+                && x.EntityId == rateHeaderId)
+            .Select(x => x.CorrelationId);
+
+        return await dbContext.AuditEvents.AsNoTracking()
+            .Where(x =>
+                x.SourceService == pricingService
+                && (
+                    (x.EntityType == rateHeaderEntity && x.EntityId == rateHeaderId)
+                    || (x.EntityType == rateDetailEntity && rateCorrelations.Contains(x.CorrelationId))
+                ))
+            .OrderByDescending(x => x.OccurredAt)
+            .ThenByDescending(x => x.CreatedAt)
+            .Select(x => new AuditEventDto(
+                x.Id,
+                x.EventId,
+                x.CorrelationId,
+                x.SourceService,
+                x.EntityType,
+                x.EntityId,
+                x.EntityName,
+                x.Action,
+                x.EventType,
+                x.UserId,
+                x.UserName,
+                x.IpAddress,
+                x.UserAgent,
+                x.OccurredAt,
+                x.CreatedAt,
+                x.Description,
+                x.HttpMethod,
+                x.RequestPath,
+                x.BeforeJson,
+                x.AfterJson,
+                x.PayloadJson,
+                x.MetadataJson,
+                x.ErrorMessage,
+                x.StackTrace,
+                x.DetailsJson
+            ))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<AuditEventListItemDto>> GetByUserAsync(
         Guid userId,
         CancellationToken cancellationToken = default
