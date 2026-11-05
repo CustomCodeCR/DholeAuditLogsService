@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-SEMVER = re.compile(r"^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$")
+SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 
 def parse(value):
     if not isinstance(value, str) or not SEMVER.fullmatch(value):
