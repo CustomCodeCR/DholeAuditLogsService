@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.1] - 2026-11-05
+
+- Publicar versión desplegada de AuditLogs en el health check.
+
 ## [1.2.0] - 2026-11-05
 
 - Incorporates universal Dhole SemVer policy with GitHub Actions checks.
