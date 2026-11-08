@@ -62,9 +62,9 @@ public sealed class F6AuditRealtimeTests
             "insert", null, null, null, null, null, DateTime.UtcNow);
         db.AuditEvents.Add(audit);
         await db.SaveChangesAsync();
-        var emitted = await db.OutboxMessages.SingleAsync(x =>
-            x.EventName == AuditRealtimeInvalidation.Type &&
-            x.PayloadJson.Contains(audit.Id.ToString("D")));
+        var emitted = (await db.OutboxMessages.Where(x =>
+            x.EventName == AuditRealtimeInvalidation.Type).ToListAsync())
+            .Single(x => x.PayloadJson.Contains(audit.Id.ToString("D"), StringComparison.Ordinal));
         using var json = JsonDocument.Parse(emitted.PayloadJson);
         Assert.AreEqual(audit.Id, json.RootElement.GetProperty("aggregateId").GetGuid());
         Assert.AreEqual(1, await db.AuditEvents.CountAsync(x => x.Id == audit.Id));
@@ -76,8 +76,9 @@ public sealed class F6AuditRealtimeTests
             "insert", null, null, null, null, null, DateTime.UtcNow);
         off.AuditEvents.Add(second);
         await off.SaveChangesAsync();
-        Assert.AreEqual(0, await off.OutboxMessages.CountAsync(x =>
-            x.PayloadJson.Contains(second.Id.ToString("D")) &&
-            x.EventName == AuditRealtimeInvalidation.Type));
+        var candidateEvents = await off.OutboxMessages.Where(x =>
+            x.EventName == AuditRealtimeInvalidation.Type).ToListAsync();
+        Assert.AreEqual(0, candidateEvents.Count(x =>
+            x.PayloadJson.Contains(second.Id.ToString("D"), StringComparison.Ordinal)));
     }
 }
