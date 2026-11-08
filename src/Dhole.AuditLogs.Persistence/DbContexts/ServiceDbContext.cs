@@ -37,7 +37,7 @@ public sealed class ServiceDbContext(DbContextOptions<ServiceDbContext> options,
             return;
         ChangeTracker.DetectChanges();
         foreach (var eventEntry in ChangeTracker.Entries<AuditEvent>()
-            .Where(x => x.State == EntityState.Added))
+            .Where(x => x.State == EntityState.Added).ToArray())
         {
             var auditId = eventEntry.Entity.Id;
             if (auditId == Guid.Empty) continue;
