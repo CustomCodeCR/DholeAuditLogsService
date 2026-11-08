@@ -5,6 +5,7 @@ using CustomCodeFramework.Workers.DependencyInjection;
 using Dhole.AuditLogs.Application.Abstractions.Mongo;
 using Dhole.AuditLogs.Infrastructure.Mongo;
 using Dhole.AuditLogs.Worker.Streams;
+using Dhole.AuditLogs.Worker.Realtime;
 using Dhole.AuditLogs.Worker.Workers;
 
 namespace Dhole.AuditLogs.Worker.DependencyInjection;
@@ -27,6 +28,7 @@ public static class WorkerServiceCollectionExtensions
 
         services.AddCustomCodeRedisStreamHandler<AuditEventStreamHandler>();
         services.AddCustomCodeRedisStreamHandler<AuditErrorStreamHandler>();
+        services.AddHostedService<AuditRealtimeOutboxPublisher>();
 
         services.AddCustomCodeWorkers(configuration);
         services.AddCustomCodePeriodicWorker<AuditLogsHealthCheckWorker>();
