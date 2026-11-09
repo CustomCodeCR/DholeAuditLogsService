@@ -1,0 +1,53 @@
+name: Realtime F6.06 Audit durable Outbox integration (isolated)
+on:
+  push:
+    branches: [feature/dhole-realtime-universal-rt-20261107-01]
+    paths:
+      - 'src/Dhole.AuditLogs.Persistence/**'
+      - 'src/Dhole.AuditLogs.Workers/Realtime/**'
+      - 'src/Dhole.AuditLogs.Workers/DependencyInjection/WorkerServiceCollectionExtensions.cs'
+      - 'tests/Dhole.AuditLogs.IntegrationTests/F6AuditRealtimeTests.cs'
+      - 'version.json'
+      - 'Directory.Build.targets'
+      - 'CHANGELOG.md'
+      - '.github/workflows/realtime-f6-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: read
+jobs:
+  audit-f6:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: audit_f6_ci
+          POSTGRES_PASSWORD: ci_only_not_for_production
+          POSTGRES_DB: dhole_audit_f6
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U audit_f6_ci -d dhole_audit_f6"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      AUDIT_F6_POSTGRES: Host=127.0.0.1;Port=5432;Database=dhole_audit_f6;Username=audit_f6_ci;Password=ci_only_not_for_production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Validate global and component SemVer
+        run: python3 scripts/verify_dhole_version.py
+      - name: Authenticate package registry
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: dotnet nuget update source github --username github-actions --password "$GITHUB_TOKEN" --store-password-in-clear-text --configfile NuGet.Config
+      - name: Restore Audit integration tests
+        run: dotnet restore tests/Dhole.AuditLogs.IntegrationTests/Dhole.AuditLogs.IntegrationTests.csproj --configfile NuGet.Config
+      - name: Build Audit API, schema migration and tests
+        run: dotnet build tests/Dhole.AuditLogs.IntegrationTests/Dhole.AuditLogs.IntegrationTests.csproj -c Release --no-restore
+      - name: Build Audit durable Outbox publisher worker
+        run: dotnet build src/Dhole.AuditLogs.Workers/Dhole.AuditLogs.Workers.csproj -c Release
+      - name: Test real audit insert and Outbox atomicity on PostgreSQL
+        run: dotnet test tests/Dhole.AuditLogs.IntegrationTests/Dhole.AuditLogs.IntegrationTests.csproj -c Release --no-build --filter FullyQualifiedName~F6AuditRealtimeTests -- RunConfiguration.TreatNoTestsAsError=true
