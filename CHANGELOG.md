@@ -1,3 +1,8 @@
+## [1.5.0] - 2026-11-14 (API Manager REST inventory)
+
+- MINOR: inventario administrativo de rutas AuditLogs, protegido por el mismo JWT y scope de integraciones.
+- Ecosistema 1.56.0.
+
 # Changelog
 
 ## [1.2.1] - 2026-11-05
