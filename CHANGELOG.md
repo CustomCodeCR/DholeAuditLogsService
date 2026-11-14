@@ -1,3 +1,7 @@
+## [1.5.0] - 2026-11-14 (API Manager discovery)
+
+- Adds JWT+scope-protected runtime route inventory, without publishing internal endpoints.
+
 # Changelog
 
 ## [1.4.0] - 2026-11-09 (NotificationsHub universal realtime pilot; candidate)
