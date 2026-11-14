@@ -1,3 +1,8 @@
+## [1.5.0] - 2026-11-14 (API Manager discovery)
+
+- MINOR: inventario HTTP de AuditLogs protegido por JWT de administrador de integraciones, solo metadatos sin acceso a registros.
+- Release Dhole 1.56.0; mantiene auditoría y realtime existentes.
+
 # Changelog
 
 ## [1.4.0] - 2026-11-09 (NotificationsHub universal realtime pilot; candidate)
