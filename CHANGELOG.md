@@ -1,3 +1,7 @@
+## [1.6.0] - 2026-11-16 (Inventario HTTP protegido en producción)
+
+- MINOR DH-20261116-API-ROUTES-DEFAULTS-165: expone rutas runtime para el API Manager bajo JWT y scope integrations.thirdparty.manage, sin alterar contratos REST ni seguridad.
+
 # Changelog
 
 ## [1.2.1] - 2026-11-05
